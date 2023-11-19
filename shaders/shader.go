@@ -30,8 +30,8 @@ var FragmentShaderSource = `
     }
     `
 
-// Create a separate shader program for the cube
-var CubeVertexShaderSource = `
+// Create a separate shader program for the unit
+var UnitVertexShaderSource = `
     #version 330 core
     in vec3 position;
     uniform mat4 model;
@@ -43,12 +43,33 @@ var CubeVertexShaderSource = `
     }
     `
 
-var CubeFragmentShaderSource = `
+var UnitFragmentShaderSource = `
     #version 330 core
     out vec4 color;
     void main()
     {
         color = vec4(0.0, 1.0, 0.0, 1.0);
+    }
+    `
+
+var HeadVertexShaderSource = `
+    #version 330 core
+    in vec3 position;
+    uniform mat4 model;
+    uniform mat4 camera;
+    uniform mat4 projection;
+    void main()
+    {
+        gl_Position = projection * camera * model * vec4(position, 1.0);
+    }
+    `
+
+var HeadFragmentShaderSource = `
+    #version 330 core
+    out vec4 color;
+    void main()
+    {
+        color = vec4(0.0, 0.0, 1.0, 1.0);
     }
     `
 

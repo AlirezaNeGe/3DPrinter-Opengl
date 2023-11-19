@@ -1,9 +1,20 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
+	"gogl/camera"
+	"gogl/collision"
+	"gogl/head"
+	"gogl/interpreter"
+	"gogl/scene"
+	"gogl/shaders"
+	"gogl/unit"
+	"gogl/utils"
 	"log"
+	"os"
 	"runtime"
+	"time"
 
 	"github.com/go-gl/gl/v4.1-core/gl"
 	"github.com/go-gl/glfw/v3.3/glfw"
@@ -13,154 +24,189 @@ import (
 const (
 	width  = 800
 	height = 600
+	fps    = 500
 )
 
-var vertices = []float32{
-	-1.0, -1.0,
-	1.0, -1.0,
-	1.0, 1.0,
-	-1.0, 1.0,
-}
-
-var indices = []uint32{
-	0, 1, 2,
-	2, 3, 0,
+func init() {
+	// GLFW event handling must run on the main OS thread
+	runtime.LockOSThread()
 }
 
 func main() {
-	runtime.LockOSThread()
+
+	// Extract Gcode values
+	gcodeFilePath := "./gcode.example"
+	file, err := os.Open(gcodeFilePath) // Replace with your file name
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+
+	values := interpreter.ExtractValues(scanner)
 
 	if err := glfw.Init(); err != nil {
-		log.Fatalln("failed to initialize glfw:", err)
+		fmt.Println("failed to initialize glfw:", err)
+		return
 	}
 	defer glfw.Terminate()
 
 	glfw.WindowHint(glfw.Resizable, glfw.False)
-	window, err := glfw.CreateWindow(width, height, "OpenGL Rectangle", nil, nil)
+	window, err := glfw.CreateWindow(width, height, "OpenGL Separated unit and Rectangle", nil, nil)
 	if err != nil {
-		log.Fatalln("failed to create window:", err)
+		fmt.Println("failed to create window:", err)
+		return
 	}
 	window.MakeContextCurrent()
 
 	if err := gl.Init(); err != nil {
-		log.Fatalln("failed to initialize OpenGL:", err)
+		fmt.Println("failed to initialize OpenGL:", err)
+		return
 	}
 
-	// Create Vertex Array Object (VAO)
-	var vao uint32
-	gl.GenVertexArrays(1, &vao)
-	gl.BindVertexArray(vao)
-
-	// Create Vertex Buffer Object (VBO) for vertices
-	var vbo uint32
-	gl.GenBuffers(1, &vbo)
-	gl.BindBuffer(gl.ARRAY_BUFFER, vbo)
-	gl.BufferData(gl.ARRAY_BUFFER, 4*len(vertices), gl.Ptr(vertices), gl.STATIC_DRAW)
-
-	// Create Element Buffer Object (EBO) for indices
-	var ebo uint32
-	gl.GenBuffers(1, &ebo)
-	gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, ebo)
-	gl.BufferData(gl.ELEMENT_ARRAY_BUFFER, 4*len(indices), gl.Ptr(indices), gl.STATIC_DRAW)
-
-	// Vertex shader source code
-	vertexShaderSource := `
-    #version 330 core
-    in vec2 position;
-    uniform mat4 model;
-    uniform mat4 camera;
-    uniform mat4 projection;
-    void main()
-    {
-        gl_Position = projection * camera * model * vec4(position, 0.0, 1.0);
-    }
-    `
-
-	// Fragment shader source code
-	fragmentShaderSource := `
-    #version 330 core
-    out vec4 color;
-    void main()
-    {
-        color = vec4(0.5, 0.5, 0.5, 1.0);
-    }
-    `
+	gl.Viewport(0, 0, width, height)
 
 	// Create and compile the shaders
-	vertexShader, err := compileShader(vertexShaderSource, gl.VERTEX_SHADER)
+	vertexShader, err := shaders.CompileShader(shaders.VertexShaderSource, gl.VERTEX_SHADER)
 	if err != nil {
-		log.Fatalln("failed to compile vertex shader:", err)
+		fmt.Println("failed to compile vertex shader:", err)
+		return
 	}
-	fragmentShader, err := compileShader(fragmentShaderSource, gl.FRAGMENT_SHADER)
+	fragmentShader, err := shaders.CompileShader(shaders.FragmentShaderSource, gl.FRAGMENT_SHADER)
 	if err != nil {
-		log.Fatalln("failed to compile fragment shader:", err)
+		fmt.Println("failed to compile fragment shader:", err)
+		return
 	}
 
-	// Create the shader program
-	shaderProgram := gl.CreateProgram()
-	gl.AttachShader(shaderProgram, vertexShader)
-	gl.AttachShader(shaderProgram, fragmentShader)
-	gl.LinkProgram(shaderProgram)
+	// unit
+	unitVertexShader, err := shaders.CompileShader(shaders.UnitVertexShaderSource, gl.VERTEX_SHADER)
+	if err != nil {
+		fmt.Println("failed to compile vertex shader:", err)
+		return
+	}
+	unitFragmentShader, err := shaders.CompileShader(shaders.UnitFragmentShaderSource, gl.FRAGMENT_SHADER)
+	if err != nil {
+		fmt.Println("failed to compile fragment shader:", err)
+		return
+	}
+
+	// unit
+	HeadVertexShader, err := shaders.CompileShader(shaders.HeadVertexShaderSource, gl.VERTEX_SHADER)
+	if err != nil {
+		fmt.Println("failed to compile vertex shader:", err)
+		return
+	}
+	HeadFragmentShader, err := shaders.CompileShader(shaders.HeadFragmentShaderSource, gl.FRAGMENT_SHADER)
+	if err != nil {
+		fmt.Println("failed to compile fragment shader:", err)
+		return
+	}
+
+	// Create the shader program scene
+	shaderProgram := shaders.NewProgram(vertexShader, fragmentShader)
+	scene.Init(shaderProgram)
+
+	// Create the shader program units
+	unitShaderProgram := shaders.NewProgram(unitVertexShader, unitFragmentShader)
+	unit.Init(unitShaderProgram)
+
+	// Create the shader program head
+	headShaderProgram := shaders.NewProgram(HeadVertexShader, HeadFragmentShader)
+	head.Init(headShaderProgram)
+
+	projection := mgl32.Perspective(mgl32.DegToRad(45.0), float32(width)/float32(height), 0.1, 100.0)
+
 	gl.UseProgram(shaderProgram)
-
-	gl.DeleteShader(vertexShader)
-	gl.DeleteShader(fragmentShader)
-
-	// Specify the layout of the vertex data
-	positionAttrib := uint32(gl.GetAttribLocation(shaderProgram, gl.Str("position\x00")))
-	gl.EnableVertexAttribArray(positionAttrib)
-	gl.VertexAttribPointer(positionAttrib, 2, gl.FLOAT, false, 2*4, nil)
-
-	// Set the projection, view, and model matrices
-	projection := mgl32.Perspective(mgl32.DegToRad(60.0), float32(width)/float32(height), 0.1, 10.0)
-	camera := mgl32.LookAtV(mgl32.Vec3{0, 0, -3}, mgl32.Vec3{0, 0, 0}, mgl32.Vec3{0, 1, 0})
-	model := mgl32.HomogRotate3D(mgl32.DegToRad(45), mgl32.Vec3{1, 0, 0})
-
-	projectionUniform := gl.GetUniformLocation(shaderProgram, gl.Str("projection\x00"))
-	cameraUniform := gl.GetUniformLocation(shaderProgram, gl.Str("camera\x00"))
+	model := mgl32.Ident4()
 	modelUniform := gl.GetUniformLocation(shaderProgram, gl.Str("model\x00"))
-
-	gl.UniformMatrix4fv(projectionUniform, 1, false, &projection[0])
-	gl.UniformMatrix4fv(cameraUniform, 1, false, &camera[0])
 	gl.UniformMatrix4fv(modelUniform, 1, false, &model[0])
 
-	// projection := mgl32.Perspective(mgl32.DegToRad(45.0), float32(width)/height, 0.1, 10.0)
-	// projectionUniform := gl.GetUniformLocation(shaderProgram, gl.Str("projection\x00"))
-	// gl.UniformMatrix4fv(projectionUniform, 1, false, &projection[0])
-	//
-	// camera := mgl32.LookAtV(mgl32.Vec3{3, 3, 3}, mgl32.Vec3{0, 0, 0}, mgl32.Vec3{0, 1, 0})
-	// cameraUniform := gl.GetUniformLocation(shaderProgram, gl.Str("camera\x00"))
-	// gl.UniformMatrix4fv(cameraUniform, 1, false, &camera[0])
-	//
-	// model := mgl32.Ident4()
-	// modelUniform := gl.GetUniformLocation(shaderProgram, gl.Str("model\x00"))
-	// gl.UniformMatrix4fv(modelUniform, 1, false, &model[0])
+	projectionUniform := gl.GetUniformLocation(shaderProgram, gl.Str("projection\x00"))
+	gl.UniformMatrix4fv(projectionUniform, 1, false, &projection[0])
+
+	// unit coordinates
+	gl.UseProgram(unitShaderProgram)
+	unitProjectionUniform := gl.GetUniformLocation(unitShaderProgram, gl.Str("projection\x00"))
+	gl.UniformMatrix4fv(unitProjectionUniform, 1, false, &projection[0])
+
+	// head coordinates
+	gl.UseProgram(headShaderProgram)
+	headUniform := gl.GetUniformLocation(headShaderProgram, gl.Str("model\x00"))
+	gl.UniformMatrix4fv(headUniform, 1, false, &model[0])
+
+	headProjectionUniform := gl.GetUniformLocation(headShaderProgram, gl.Str("projection\x00"))
+	gl.UniformMatrix4fv(headProjectionUniform, 1, false, &projection[0])
+
+	var acceleration float32 = -9.8
+	previousTime := glfw.GetTime()
+
+	// units := utils.MakeUnits(&values, unitShaderProgram)
+	path := utils.MakePath(&values)
+
+	var pathToDraw []*utils.Path
+	pathToDraw = append(pathToDraw, path[0])
+
+	var unitsToDraw []*unit.Unit
+
+	pl := 0
+	lenPath := len(path)
+
+	gl.Enable(gl.DEPTH_TEST)
+	window.SetInputMode(glfw.CursorMode, glfw.CursorNormal)
+	window.SetCursorPosCallback(camera.CursorPosCallback)
 
 	for !window.ShouldClose() {
 		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
-		gl.UseProgram(shaderProgram)
-		gl.BindVertexArray(vao)
-		gl.DrawElements(gl.TRIANGLES, int32(len(indices)), gl.UNSIGNED_INT, nil)
+
+		camera.ProcessInput(window)
+		// Update
+		t := glfw.GetTime()
+		elapsed := t - previousTime
+		previousTime = t
+
+		camera := mgl32.LookAtV(camera.CameraPos, camera.CameraFront.Add(camera.CameraFront), camera.CameraUp)
+
+		// Render the scene
+		scene.DrawScene(shaderProgram, camera)
+
+		// Previous units
+		for i, u := range unitsToDraw {
+			// Check for collision
+			for j, uB := range unitsToDraw {
+				if i != j {
+					if collision.UnitsCollide(u, uB) {
+						if u.Z < uB.Z {
+							uB.Still = true
+						} else {
+							u.Still = true
+						}
+					}
+
+				}
+			}
+			if u.Z > 0 && u.Still == false {
+				u.Velocity += acceleration * float32(elapsed)
+				u.Z += u.Velocity * float32(elapsed)
+				if u.Z <= 0 {
+					u.Z = 0
+				}
+			}
+			u.Draw(camera)
+		}
+
+		head.DrawHead(path[pl].X, path[pl].Y, path[pl].Z, headShaderProgram, camera)
+		if pl < lenPath-1 {
+			if path[pl].Feed == true {
+				u := unit.NewUnit(path[pl].X, path[pl].Y, path[pl].Z, 0, unitShaderProgram)
+				u.Draw(camera)
+				unitsToDraw = append(unitsToDraw, u)
+			}
+			pl++
+		}
+
 		window.SwapBuffers()
 		glfw.PollEvents()
+		time.Sleep(time.Second / time.Duration(fps))
 	}
-}
-
-func compileShader(source string, shaderType uint32) (uint32, error) {
-	shader := gl.CreateShader(shaderType)
-	csource, free := gl.Strs(source)
-	gl.ShaderSource(shader, 1, csource, nil)
-	free()
-	gl.CompileShader(shader)
-
-	var status int32
-	gl.GetShaderiv(shader, gl.COMPILE_STATUS, &status)
-	if status == gl.FALSE {
-		var logLength int32
-		gl.GetShaderiv(shader, gl.INFO_LOG_LENGTH, &logLength)
-		log := make([]byte, logLength)
-		gl.GetShaderInfoLog(shader, logLength, nil, &log[0])
-		return 0, fmt.Errorf("failed to compile %v: %v", source, string(log))
-	}
-	return shader, nil
 }

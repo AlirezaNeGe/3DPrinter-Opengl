@@ -10,6 +10,7 @@ var unitVAO, unitVBO, unitEBO uint32
 type Unit struct {
 	ShaderProgram uint32
 	Velocity      float32
+	Still         bool
 	X             float32
 	Y             float32
 	Z             float32
@@ -45,7 +46,7 @@ func NewUnit(x, y, z float32, velocity float32, shaderProgram uint32) *Unit {
 	}
 }
 
-func (u *Unit) Draw() {
+func (u *Unit) Draw(camera mgl32.Mat4) {
 	gl.UseProgram(u.ShaderProgram)
 
 	// Translate model to x, y, z location
@@ -53,6 +54,10 @@ func (u *Unit) Draw() {
 	model = model.Mul4(mgl32.Translate3D(u.X, u.Y, u.Z))
 	modelUniform := gl.GetUniformLocation(u.ShaderProgram, gl.Str("model\x00"))
 	gl.UniformMatrix4fv(modelUniform, 1, false, &model[0])
+
+	unitCameraUniform := gl.GetUniformLocation(u.ShaderProgram, gl.Str("camera\x00"))
+
+	gl.UniformMatrix4fv(unitCameraUniform, 1, false, &camera[0])
 	gl.BindVertexArray(unitVAO)
 	gl.DrawElements(gl.TRIANGLES, int32(len(unitIndices)), gl.UNSIGNED_INT, nil)
 }
