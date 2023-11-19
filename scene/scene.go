@@ -25,6 +25,7 @@ func Init(shaderProgram uint32) {
 	positionAttrib := uint32(gl.GetAttribLocation(shaderProgram, gl.Str("position\x00")))
 	gl.EnableVertexAttribArray(positionAttrib)
 	gl.VertexAttribPointer(positionAttrib, 3, gl.FLOAT, false, 3*4, nil)
+
 }
 
 func DrawScene(shaderProgram uint32, camera mgl32.Mat4) {
@@ -32,8 +33,8 @@ func DrawScene(shaderProgram uint32, camera mgl32.Mat4) {
 
 	cameraUniform := gl.GetUniformLocation(shaderProgram, gl.Str("camera\x00"))
 	gl.UniformMatrix4fv(cameraUniform, 1, false, &camera[0])
-	// Translate model to x, y, z location
 	gl.BindVertexArray(VAO)
+
 	gl.DrawElements(gl.TRIANGLES, int32(len(indices)), gl.UNSIGNED_INT, nil)
 }
 

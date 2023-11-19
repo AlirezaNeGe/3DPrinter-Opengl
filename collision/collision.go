@@ -9,7 +9,7 @@ import (
 
 const (
 	// Minimum distance for collision is unit size
-	UnitSize = 0.01
+	UnitSize = 0.02
 	// Angle between distance vector and z-axis
 	theta = 40
 )
