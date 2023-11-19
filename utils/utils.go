@@ -20,6 +20,48 @@ func CalculateUnitNumber(start, end interpreter.GCode) int {
 	return unitNumber
 }
 
+type Path struct {
+	X    float32
+	Y    float32
+	Z    float32
+	Feed bool
+}
+
+func MakePath(values *[]interpreter.GCode) []*Path {
+	var path []*Path
+	var feed bool
+	lastGcode := interpreter.GCode{
+		G: 0,
+		X: 0,
+		Y: 0,
+		Z: 0,
+	}
+
+	for _, gcode := range *values {
+		feed = false
+		steps := CalculateUnitNumber(lastGcode, gcode)
+		xStep := (gcode.X - lastGcode.X) / float32(steps)
+		yStep := (gcode.Y - lastGcode.Y) / float32(steps)
+		zStep := (gcode.Z - lastGcode.Z) / float32(steps)
+		if gcode.G == 1 {
+			feed = true
+		}
+		for i := 0; i < steps; i++ {
+			p := &Path{
+				X:    lastGcode.X + xStep*float32(i),
+				Y:    lastGcode.Y + yStep*float32(i),
+				Z:    lastGcode.Z + zStep*float32(i),
+				Feed: feed,
+			}
+			path = append(path, p)
+		}
+		path = append(path, &Path{gcode.X, gcode.Y, gcode.Z, feed})
+
+		lastGcode = gcode
+	}
+	return path
+}
+
 func MakeUnits(values *[]interpreter.GCode, cubeShaderProgram uint32) []*unit.Unit {
 	var units []*unit.Unit
 	lastGcode := interpreter.GCode{
