@@ -37,7 +37,6 @@ func main() {
 	// Extract Gcode values
 	var gcodeFilePath string
 	args := os.Args
-	fmt.Println(args)
 	if len(args) > 1 {
 		gcodeFilePath = args[1]
 	} else {
