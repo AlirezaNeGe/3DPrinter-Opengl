@@ -157,6 +157,8 @@ func main() {
 	window.SetCursorPosCallback(camera.CursorPosCallback)
 
 	for !window.ShouldClose() {
+		// gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+		gl.ClearColor(1, 1, 1, 1)
 		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
 		camera.ProcessInput(window)
