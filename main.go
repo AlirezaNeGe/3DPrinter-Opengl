@@ -35,8 +35,16 @@ func init() {
 func main() {
 
 	// Extract Gcode values
-	gcodeFilePath := "./gcode.example"
-	file, err := os.Open(gcodeFilePath) // Replace with your file name
+	var gcodeFilePath string
+	args := os.Args
+	fmt.Println(args)
+	if len(args) > 1 {
+		gcodeFilePath = args[1]
+	} else {
+		gcodeFilePath = "./gcode.example"
+	}
+
+	file, err := os.Open(gcodeFilePath)
 	if err != nil {
 		log.Fatal(err)
 	}
