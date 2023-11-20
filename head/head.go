@@ -45,10 +45,10 @@ func DrawHead(x, y, z float32, shaderProgram uint32, camera mgl32.Mat4) {
 var (
 	pyramidVertices = []float32{
 		0.0, 0.0, 0.0,
-		0.1, 0.1, 0.1,
-		0.1, -0.1, 0.1,
-		-0.1, 0.1, 0.1,
-		-0.1, -0.1, 0.1,
+		0.1, 0.1, 0.2,
+		0.1, -0.1, 0.2,
+		-0.1, 0.1, 0.2,
+		-0.1, -0.1, 0.2,
 	}
 
 	// Indices for vertices order
