@@ -9,6 +9,7 @@ import (
 // Vertex shader source code
 var VertexShaderSource = `
     #version 330 core
+
     in vec3 position;
     uniform mat4 model;
     uniform mat4 projection;
@@ -26,7 +27,7 @@ var FragmentShaderSource = `
     out vec4 color;
     void main()
     {
-        color = vec4(0.2, 0.2, 0.2, 1.0);
+        color = vec4(0.4, 0.4, 0.4, 1.0);
     }
     `
 
@@ -48,7 +49,7 @@ var UnitFragmentShaderSource = `
     out vec4 color;
     void main()
     {
-        color = vec4(0.0, 1.0, 0.0, 1.0);
+        color = vec4(0.0, 0.7, 0.2, 1.0);
     }
     `
 
