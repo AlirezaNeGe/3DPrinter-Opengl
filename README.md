@@ -8,6 +8,8 @@ Explore the world of 3D printing with this simulation written in Golang and powe
 - Implemented in Golang for simplicity and efficiency.
 - Graphics rendering with OpenGL for a visually immersive experience.
 
+![](https://github.com/AlirezaNeGe/3DPrinter-Opengl/blob/main/.gif)
+
 ## Getting Started
 
 ### Prerequisites
